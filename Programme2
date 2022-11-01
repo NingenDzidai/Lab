@@ -1,0 +1,137 @@
+from typing import IO, Counter
+import json
+import math
+
+
+def convert(list):
+        s = [str(i) for i in list]
+        res = int("".join(s))
+        return(res)
+
+
+def HeaderToJSON(file):
+    start = file.read(10) 
+    print(start)
+            
+    chID = bytes()
+    count = 0
+    while True:       
+        s = file.read(1)
+        chID += s
+        if s == b'}':
+            count += 1
+            if count == 6:
+                break
+    
+    noise2 = f.read(4)
+
+    return json.loads(chID)
+
+
+def TimeBetween(x1): # кол-во точек делить на частоту семплирования 
+    return x1/S_r    # возвращает время между замерами 
+
+
+def PolarityChangePoint(array):
+    i = 400
+    while i < 601:
+        if array[i+20]/array[i] <= 0.7:
+            t = 0
+            while t < 20:
+                print(array[i + t])
+                t += 1
+            break
+        i += 1
+    print(i)
+    return i
+
+def RRTimePoint(array):
+
+    peak_neg = min(array)
+    index_min = min(range(len(array)), key=array.__getitem__)
+
+    print(index_min)
+    print(peak_neg)
+
+    peak_neg *= 0.25
+    i = index_min
+    while i < 1520:
+        if array[i]/(peak_neg) <= 0.95:
+            t = 0
+            while t < 2:
+                print(array[i + t])
+                t += 1
+            break
+        i += 1
+
+    print(array[i])
+    print(i)
+    return i
+
+
+if __name__ == '__main__':
+
+    file_name = input("Write file name:")
+
+    with open(file_name, "rb") as f: 
+
+        header = HeaderToJSON(f)
+
+        data_to_read = header['SAMPLE']['DATALEN']*2 
+
+        data2 = f.read(data_to_read)
+
+        data_ints_ch2 = []
+
+        for i in range(0, data_to_read,2):
+            data_ints_ch2.append(int.from_bytes(data2[i:i+2], "little", signed=True))
+                
+
+    SampleRate = header['SAMPLE']['SAMPLERATE']
+    numbers = []
+
+    for word in SampleRate:
+        if word.isdigit():
+            numbers.append(int(word))
+            SampleRate = SampleRate.replace(word,"")
+
+    S_r = convert(numbers)
+
+    if 'k' in SampleRate:
+        S_r *= 1000
+    elif 'M' in SampleRate:
+        S_r *= 1000000
+    elif 'G' in SampleRate:
+        S_r *= 1000000000
+    print("Sample Rate is", S_r, "Samples per seconds")
+
+    # extract the scale for Channel 2
+    Scale2 = header['CHANNEL'][1]['SCALE']
+    scales2 = []
+    # separate integers from chars in channel 2 scale string
+    for scl_2 in Scale2:
+        if scl_2.isdigit():
+            scales2.append(int(scl_2))
+            Scale2 = Scale2.replace(scl_2,"")
+        if scl_2 == '.':
+            break;
+
+    #  obtain the integers from channel 2 scale string
+    Y2_scale = convert(scales2)
+
+    # converting the channel 2 scale to each correspondant integer value
+    if 'm' in Scale2:
+        Y2_scale *= 0.001
+
+    print("Channel 2 scale: ", Y2_scale, "volts")
+
+
+    volts_ch2 = []
+    volts_ch2 = [i *(Y2_scale * 10)/(2**14) for i in data_ints_ch2]
+
+    start_point = PolarityChangePoint(volts_ch2)
+
+    RRTime_point = RRTimePoint(volts_ch2)
+
+    reverse_recovery_time = (RRTime_point - start_point) / S_r
+    print(reverse_recovery_time)
